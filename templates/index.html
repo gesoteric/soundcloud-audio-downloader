@@ -142,6 +142,27 @@
             height: 25px;
             border-radius: 5px;
         }
+        /* Server status CSS for Track Statuses */
+.server-status {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.server-status[type="completed"] {
+  background: #2ECC71; /* Green for Completed */
+}
+
+.server-status[type="in_progress"] {
+  background: #F1C40F; /* Yellow for In Progress */
+}
+
+.server-status[type="failed"] {
+  background: #E74C3C; /* Red for Failed */
+}
+
     </style>
 </head>
 
@@ -162,6 +183,14 @@
         <div style="border-left: 1.5px solid lightgrey; border-right: 1.5px solid lightgrey;">
             <main style="padding: 20px;">
                 <h2>Liked Tracks</h2>
+
+                <div id="mp3-player-container" style="display: none; margin-bottom: 20px;">
+                    <audio id="mp3-player" controls>
+                        <source id="mp3-player-source" src="" type="audio/mp3">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
                 <button onclick="loadTrackLikes()">Get Liked Tracks</button>
 
                 <!-- Table for displaying tracks -->
@@ -200,55 +229,80 @@
             });
         }
 
-        function loadTracks() {
-            fetch('/get_tracks')
-                .then(response => response.json())
-                .then(tracks => {
-                    const tableBody = document.getElementById('tracks-table-body');
-                    tableBody.innerHTML = ''; // Clear existing rows
+     function loadTracks() {
+    fetch('/get_tracks')
+        .then(response => response.json())
+        .then(tracks => {
+            const tableBody = document.getElementById('tracks-table-body');
+            tableBody.innerHTML = ''; // Clear existing rows
 
-                    tracks.forEach(track => {
-                        const row = document.createElement('tr');
+            tracks.forEach(track => {
+                const row = document.createElement('tr');
 
-                        const titleArtistCell = document.createElement('td');
-                        titleArtistCell.style.display = "flex";
-                        titleArtistCell.style.alignItems = "center";
-                        titleArtistCell.style.gap = "10px";
+                const titleArtistCell = document.createElement('td');
+                titleArtistCell.style.display = "flex";
+                titleArtistCell.style.alignItems = "center";
+                titleArtistCell.style.gap = "10px";
 
-                        const artworkImg = document.createElement('img');
-                        artworkImg.src = track.artwork_url;
-                        artworkImg.alt = "Artwork";
+                const artworkImg = document.createElement('img');
+                artworkImg.src = track.artwork_url;
+                artworkImg.alt = "Artwork";
 
-                        const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
-                        titleArtistCell.appendChild(artworkImg);
-                        titleArtistCell.appendChild(textContent);
+                const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
+                titleArtistCell.appendChild(artworkImg);
+                titleArtistCell.appendChild(textContent);
 
-                        row.appendChild(titleArtistCell);
+                row.appendChild(titleArtistCell);
 
-                        const statusCell = document.createElement('td');
-                        statusCell.textContent = track.status;
-                        row.appendChild(statusCell);
+                // Create a status cell with an indicator
+                const statusCell = document.createElement('td');
+                const statusIndicator = document.createElement('span');
+                statusIndicator.classList.add('server-status');
 
-                        const stageCell = document.createElement('td');
-                        stageCell.textContent = track.stage;
-                        row.appendChild(stageCell);
+                // Add class based on track status
+                if (track.status === "completed") {
+                    statusIndicator.setAttribute('type', 'completed');
+                } else if (track.status === "in_progress") {
+                    statusIndicator.setAttribute('type', 'in_progress');
+                } else if (track.status === "failed") {
+                    statusIndicator.setAttribute('type', 'failed');
+                }
+                statusCell.appendChild(statusIndicator);
+                row.appendChild(statusCell);
 
-                        const actionsCell = document.createElement('td');
-                        actionsCell.classList.add('action-buttons');
-                        actionsCell.innerHTML = `
-                            <button onclick="downloadTrack()">Download</button>
-                            <button onclick="retryTrack()">Retry</button>
-                        `;
-                        row.appendChild(actionsCell);
+                const stageCell = document.createElement('td');
+                stageCell.textContent = track.stage;
+                row.appendChild(stageCell);
 
-                        tableBody.appendChild(row);
-                    });
+                const actionsCell = document.createElement('td');
+                actionsCell.classList.add('action-buttons');
 
-                    initializeDataTable();
-                })
-                .catch(error => console.error('Error loading tracks:', error));
-        }
+                if (track.status === 'completed') {
+                    // Play button for completed tracks
+                    actionsCell.innerHTML = ` 
+                        <button onclick="playTrack('${track.file_location}')">Play</button>
+                        <button onclick="retryTrack()">Retry</button>
+                    `;
+                } else {
+                    // Retry button for non-completed tracks
+                    actionsCell.innerHTML = ` 
+                        <button onclick="retryTrack()">Retry</button>
+                    `;
+                }
 
+                row.appendChild(actionsCell);
+                tableBody.appendChild(row);
+            });
+
+            // Destroy the existing DataTable and reinitialize it
+            if ($.fn.dataTable.isDataTable('#tracks-table')) {
+                $('#tracks-table').DataTable().clear().destroy();
+            }
+
+            // Reinitialize DataTable after updating rows
+            initializeDataTable();
+        });
+}
         function downloadTrack() {
             alert('Download clicked');
         }
@@ -281,45 +335,106 @@
         }
 
         function updateDataTable(tracks) {
-            const tableBody = document.getElementById('tracks-table-body');
-            tableBody.innerHTML = ''; // Clear existing rows
+    const tableBody = document.getElementById('tracks-table-body');
+    tableBody.innerHTML = ''; // Clear existing rows
 
-            tracks.forEach(track => {
-                const row = document.createElement('tr');
-                const titleArtistCell = document.createElement('td');
-                titleArtistCell.style.display = "flex";
-                titleArtistCell.style.alignItems = "center";
-                titleArtistCell.style.gap = "10px";
+    tracks.forEach(track => {
+        const row = document.createElement('tr');
 
-                const artworkImg = document.createElement('img');
-                artworkImg.src = track.artwork_url;
-                artworkImg.alt = "Artwork";
+        const titleArtistCell = document.createElement('td');
+        titleArtistCell.style.display = "flex";
+        titleArtistCell.style.alignItems = "center";
+        titleArtistCell.style.gap = "10px";
 
-                const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
-                titleArtistCell.appendChild(artworkImg);
-                titleArtistCell.appendChild(textContent);
+        const artworkImg = document.createElement('img');
+        artworkImg.src = track.artwork_url;
+        artworkImg.alt = "Artwork";
 
-                row.appendChild(titleArtistCell);
+        const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
+        titleArtistCell.appendChild(artworkImg);
+        titleArtistCell.appendChild(textContent);
 
-                const statusCell = document.createElement('td');
-                statusCell.textContent = track.status;
-                row.appendChild(statusCell);
+        row.appendChild(titleArtistCell);
 
-                const stageCell = document.createElement('td');
-                stageCell.textContent = track.stage;
-                row.appendChild(stageCell);
+        // Create a status cell with an indicator
+        const statusCell = document.createElement('td');
+        const statusIndicator = document.createElement('span');
+        statusIndicator.classList.add('server-status');
 
-                const actionsCell = document.createElement('td');
-                actionsCell.classList.add('action-buttons');
-                actionsCell.innerHTML = `
-                    <button onclick="downloadTrack()">Download</button>
-                    <button onclick="retryTrack()">Retry</button>
-                `;
-                row.appendChild(actionsCell);
-
-                tableBody.appendChild(row);
-            });
+        // Add class based on track status
+        if (track.status === "completed") {
+            statusIndicator.setAttribute('type', 'completed');
+        } else if (track.status === "in_progress") {
+            statusIndicator.setAttribute('type', 'in_progress');
+        } else if (track.status === "failed") {
+            statusIndicator.setAttribute('type', 'failed');
         }
+        statusCell.appendChild(statusIndicator);
+        row.appendChild(statusCell);
+
+        const stageCell = document.createElement('td');
+        stageCell.textContent = track.stage;
+        row.appendChild(stageCell);
+
+        const actionsCell = document.createElement('td');
+        actionsCell.classList.add('action-buttons');
+        
+        // Add Play button for completed tracks
+        if (track.status === 'completed') {
+            actionsCell.innerHTML = `
+                <button onclick="playTrack('${track.file_location}')">Play</button>
+                <button onclick="retryTrack()">Retry</button>
+            `;
+        } else {
+            // Retry button for non-completed tracks
+            actionsCell.innerHTML = `
+                <button onclick="retryTrack()">Retry</button>
+            `;
+        }
+        row.appendChild(actionsCell);
+
+        tableBody.appendChild(row);
+    });
+}
+function playTrack(fileLocation) {
+    // Ensure the MP3 player container is displayed
+    const mp3PlayerContainer = document.getElementById('mp3-player-container');
+    if (mp3PlayerContainer) {
+        mp3PlayerContainer.style.display = 'block';  // Show the player
+    } else {
+        console.error('MP3 player container not found!');
+        return;
+    }
+
+    // Construct the full URL to the track by appending it to the server path
+    const fullFilePath = `${fileLocation}`;
+
+    // Get the MP3 player source element
+    const mp3PlayerSource = document.getElementById('mp3-player-source');
+    if (mp3PlayerSource) {
+        // Set the MP3 source URL
+        mp3PlayerSource.src = fullFilePath;
+    } else {
+        console.error('MP3 player source element not found!');
+        return;
+    }
+
+    // Get the MP3 player element
+    const mp3Player = document.getElementById('mp3-player');
+    if (mp3Player) {
+        // Reload the source and play the track
+        mp3Player.load();  // Reload the player
+        mp3Player.play();  // Start playing the track
+    } else {
+        console.error('MP3 player element not found!');
+    }
+}
+
+
+
+function retryTrack() {
+    alert('Retry clicked');
+}
     </script>
 
 </body>
