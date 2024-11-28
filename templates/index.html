@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liked Tracks</title>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <link rel="stylesheet" href="/fonts/style.css">
+
     <style>
         /* Basic Reset */
         * {
@@ -15,14 +19,15 @@
 
         /* Body and general styles */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter Medium', sans-serif;
             background-color: #f7f7f7;
             color: #333;
+            font-size: 15px;
             line-height: 1.5;
             margin: 0;
             padding: 0;
             display: grid;
-            grid-template-rows: 60px 1fr; /* Fixed header at top, rest of the page content below */
+            grid-template-rows: 60px 1fr;
         }
 
         /* Fixed Navigation bar */
@@ -62,11 +67,12 @@
         /* Main container with three columns */
         .container {
             display: grid;
-            grid-template-columns: 1fr 60% 1fr; /* 60% width for the middle column */
+            grid-template-columns: 1fr 60% 1fr;
             grid-gap: 20px;
             width: 100%;
-            padding-top: 80px; /* To account for the fixed navigation */
+            padding-top: 55px;
             height: 100vh;
+            overflow: auto;
         }
 
         /* Main section */
@@ -99,7 +105,7 @@
         /* Table styling */
         #tracks-table {
             width: 100%;
-            margin-top: 30px;
+            table-layout: auto;
         }
 
         .action-buttons button {
@@ -112,17 +118,33 @@
             margin: 5px;
         }
 
+        #tracks-table td {
+            height: 40px;
+        }
+
+        #tracks-table td:nth-child(1) {
+            font-size: 15px;
+            color: #333;
+            text-align: left;
+        }
+        
+        #tracks-table th {
+            text-align: left;
+        }
+
         .action-buttons button:hover {
             background-color: #45a049;
         }
 
         /* Image styling */
         img {
-            max-width: 50px;
-            height: auto;
+            max-width: 25px;
+            height: 25px;
+            border-radius: 5px;
         }
     </style>
 </head>
+
 <body>
 
     <!-- Fixed Navigation Bar -->
@@ -136,93 +158,81 @@
 
     <!-- Main content container -->
     <div class="container">
-        <!-- Left Spacer Column (empty) -->
         <div></div>
-
-        <!-- Center Column (Main Content) -->
-        <div>
-            <!-- Main content -->
-            <main>
+        <div style="border-left: 1.5px solid lightgrey; border-right: 1.5px solid lightgrey;">
+            <main style="padding: 20px;">
                 <h2>Liked Tracks</h2>
-                
-                <!-- Button to Load New Tracks -->
-                <button onclick="loadTracks()">Load New Tracks</button>
+                <button onclick="loadTrackLikes()">Get Liked Tracks</button>
 
                 <!-- Table for displaying tracks -->
-                <table id="tracks-table" class="display">
+                <table id="tracks-table" class="compact row-border">
                     <thead>
                         <tr>
                             <th>Title</th>
-                            <th>Artist</th>
                             <th>Status</th>
                             <th>Stage</th>
-                            <th>Artwork</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="tracks-table-body">
-                        <!-- Dynamic track rows will be inserted here -->
-                    </tbody>
+                    <tbody id="tracks-table-body"></tbody>
                 </table>
             </main>
         </div>
-
-        <!-- Right Spacer Column (empty) -->
         <div></div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script>
-        // Automatically load tracks when the page loads
-        window.onload = loadTracks;
+        window.onload = () => {
+            loadTracks();          // Fetch and display tracks initially
+            startPeriodicUpdates(); // Start periodic updates
+        };
 
-        // Initialize DataTable after tracks are loaded
         function initializeDataTable() {
             $('#tracks-table').DataTable({
                 paging: true,
                 searching: true,
                 ordering: true,
                 info: true,
-                responsive: true
+                responsive: true,
+                columnDefs: [{ targets: 3, orderable: false }]
             });
         }
 
-        // Function to load tracks
         function loadTracks() {
             fetch('/get_tracks')
                 .then(response => response.json())
                 .then(tracks => {
                     const tableBody = document.getElementById('tracks-table-body');
-                    tableBody.innerHTML = '';  // Clear any existing rows
+                    tableBody.innerHTML = ''; // Clear existing rows
 
                     tracks.forEach(track => {
                         const row = document.createElement('tr');
-                        
-                        // Create cells for each track property
-                        const titleCell = document.createElement('td');
-                        titleCell.textContent = track.title;
-                        row.appendChild(titleCell);
-                        
-                        const artistCell = document.createElement('td');
-                        artistCell.textContent = track.artist;
-                        row.appendChild(artistCell);
-                        
-                        const statusCell = document.createElement('td');
-                        statusCell.textContent = track.status;
-                        row.appendChild(statusCell);
-                        
-                        const stageCell = document.createElement('td');
-                        stageCell.textContent = track.stage;
-                        row.appendChild(stageCell);
-                        
-                        const artworkCell = document.createElement('td');
+
+                        const titleArtistCell = document.createElement('td');
+                        titleArtistCell.style.display = "flex";
+                        titleArtistCell.style.alignItems = "center";
+                        titleArtistCell.style.gap = "10px";
+
                         const artworkImg = document.createElement('img');
                         artworkImg.src = track.artwork_url;
                         artworkImg.alt = "Artwork";
-                        artworkCell.appendChild(artworkImg);
-                        row.appendChild(artworkCell);
-                        
+
+                        const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
+                        titleArtistCell.appendChild(artworkImg);
+                        titleArtistCell.appendChild(textContent);
+
+                        row.appendChild(titleArtistCell);
+
+                        const statusCell = document.createElement('td');
+                        statusCell.textContent = track.status;
+                        row.appendChild(statusCell);
+
+                        const stageCell = document.createElement('td');
+                        stageCell.textContent = track.stage;
+                        row.appendChild(stageCell);
+
                         const actionsCell = document.createElement('td');
                         actionsCell.classList.add('action-buttons');
                         actionsCell.innerHTML = `
@@ -234,13 +244,11 @@
                         tableBody.appendChild(row);
                     });
 
-                    // Initialize or re-initialize DataTable after updating the table
                     initializeDataTable();
                 })
                 .catch(error => console.error('Error loading tracks:', error));
         }
 
-        // Action functions
         function downloadTrack() {
             alert('Download clicked');
         }
@@ -248,6 +256,72 @@
         function retryTrack() {
             alert('Retry clicked');
         }
+
+        function loadTrackLikes() {
+            fetch('/load_liked_tracks', { method: 'GET' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Background processing started!');
+                    } else {
+                        alert('Failed to start processing.');
+                    }
+                })
+                .catch(error => console.error('Error triggering load_liked_tracks:', error));
+        }
+
+        function startPeriodicUpdates() {
+            setInterval(() => {
+                fetch('/get_tracks')
+                    .then(response => response.json())
+                    .then(tracks => {
+                        updateDataTable(tracks); // Update table with new data
+                    })
+                    .catch(error => console.error('Error updating tracks:', error));
+            }, 5000); // Update every 5 seconds
+        }
+
+        function updateDataTable(tracks) {
+            const tableBody = document.getElementById('tracks-table-body');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            tracks.forEach(track => {
+                const row = document.createElement('tr');
+                const titleArtistCell = document.createElement('td');
+                titleArtistCell.style.display = "flex";
+                titleArtistCell.style.alignItems = "center";
+                titleArtistCell.style.gap = "10px";
+
+                const artworkImg = document.createElement('img');
+                artworkImg.src = track.artwork_url;
+                artworkImg.alt = "Artwork";
+
+                const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
+                titleArtistCell.appendChild(artworkImg);
+                titleArtistCell.appendChild(textContent);
+
+                row.appendChild(titleArtistCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.textContent = track.status;
+                row.appendChild(statusCell);
+
+                const stageCell = document.createElement('td');
+                stageCell.textContent = track.stage;
+                row.appendChild(stageCell);
+
+                const actionsCell = document.createElement('td');
+                actionsCell.classList.add('action-buttons');
+                actionsCell.innerHTML = `
+                    <button onclick="downloadTrack()">Download</button>
+                    <button onclick="retryTrack()">Retry</button>
+                `;
+                row.appendChild(actionsCell);
+
+                tableBody.appendChild(row);
+            });
+        }
     </script>
+
 </body>
+
 </html>

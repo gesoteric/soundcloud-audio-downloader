@@ -11,10 +11,13 @@ from retry import retry_with_logging
 
 app = Flask(__name__)
 
+
+
+
 # Create tmp directory if it doesn't exist
 os.makedirs('tmp', exist_ok=True)
 
-conn = sqlite3.connect('soundcloud.sqlite')
+conn = sqlite3.connect('soundcloud.sqlite', check_same_thread=False)
 cursor = conn.cursor()
 
 logging.basicConfig(level=logging.INFO)
@@ -354,8 +357,7 @@ def get_tracks_from_db():
     # Return the tracks
     return tracks
 
-process_tracks()
-
+# process_tracks()
 
 @app.route('/')
 def index():
@@ -376,6 +378,17 @@ def get_tracks():
         })
     
     return jsonify(track_list)
+
+@app.route('/load_liked_tracks', methods=['GET'])
+def load_liked_tracks():
+    try:
+        process_tracks()  # Call the function to process tracks
+        return jsonify({"message": "Tracks processing triggered successfully."}), 200
+    except Exception as e:
+        # Log the error for debugging
+        logging.error(f"Error in load_liked_tracks: {e}")
+        return jsonify({"error": "An error occurred while processing tracks.", "details": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

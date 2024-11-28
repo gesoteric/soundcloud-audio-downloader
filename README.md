@@ -1,3 +1,6 @@
+# Why I started this project?
+
+I live in Australia, where mobile internet is garbage. Going for night drives in remote areas can often result in internet data being unavailable, resulting in my soundcloud playlist being inaccessible. I have set out to remedy this problem as part of this little project.
 
 # SoundCloud Bulk Track Processor
 
