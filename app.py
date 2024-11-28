@@ -1,12 +1,15 @@
 import requests
 import os
-import time
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 import sqlite3
 import logging
 import re
 from config import user_id, client_id, limit, offset
+from flask import Flask, render_template, request, jsonify
+from retry import retry_with_logging
+
+app = Flask(__name__)
 
 # Create tmp directory if it doesn't exist
 os.makedirs('tmp', exist_ok=True)
@@ -15,30 +18,6 @@ conn = sqlite3.connect('soundcloud.sqlite')
 cursor = conn.cursor()
 
 logging.basicConfig(level=logging.INFO)
-
-def retry_with_logging(func, max_retries=3, delay=2, *args, **kwargs):
-    """
-    Retry a function up to max_retries times with a delay between attempts.
-    Logs retries and failures.
-
-    :param func: Function to retry.
-    :param max_retries: Number of retry attempts.
-    :param delay: Delay between retries in seconds.
-    :param args: Positional arguments for the function.
-    :param kwargs: Keyword arguments for the function.
-    :return: Result of the function if successful, or None if all retries fail.
-    """
-    for attempt in range(1, max_retries + 1):
-        try:
-            logging.info(f"Attempt {attempt}/{max_retries} for {func.__name__}.")
-            result = func(*args, **kwargs)
-            if result:
-                return result
-        except Exception as e:
-            logging.warning(f"Attempt {attempt} failed for {func.__name__}: {e}")
-        time.sleep(delay)
-    logging.warning(f"All {max_retries} attempts failed for {func.__name__}.")
-    return None
 
 # Because artists I listen to use silly shit in their titles..
 def sanitize_filename(filename):
@@ -56,6 +35,7 @@ CREATE TABLE IF NOT EXISTS likes (
     album VARCHAR,
     artist VARCHAR,
     track_auth VARCHAR,
+    artwork_url VARCHAR,
     stream_url VARCHAR,
     status TEXT DEFAULT 'pending',  -- 'pending', 'in_progress', 'completed', 'failed'
     stage TEXT DEFAULT 'start'      -- 'start', 'stream_url_retrieved', 'm3u_url_retrieved', 'available_for_download', etc.
@@ -69,7 +49,7 @@ def create_track_folder(track_id):
     os.makedirs(track_folder, exist_ok=True)
     return track_folder
 
-def get_liked_tracks():
+def get_liked_tracks(limit=1, offset=None):
     """Retrieves liked tracks from SoundCloud."""
     url = f"https://api-v2.soundcloud.com/users/{user_id}/track_likes"
     params = {
@@ -218,8 +198,8 @@ def insert_or_update_track_info(user_id, client_id, track_id, **kwargs):
     else:
         # Insert a new record
         query = '''
-        INSERT INTO likes (user_id, client_id, track_id, m3u_url, title, album, artist, track_auth, stream_url, status, stage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO likes (user_id, client_id, track_id, m3u_url, title, album, artist, track_auth, stream_url, artwork_url, status, stage)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         values = (
             user_id, client_id, track_id,
@@ -229,6 +209,7 @@ def insert_or_update_track_info(user_id, client_id, track_id, **kwargs):
             kwargs.get('artist'),
             kwargs.get('track_auth'),
             kwargs.get('stream_url'),
+            kwargs.get('artwork_url'),
             kwargs.get('status', 'pending'),
             kwargs.get('stage', 'start')
         )
@@ -269,6 +250,7 @@ def process_tracks(track_id=None):
         title = track.get('title')
         album_title = track.get('album', {}).get('title', '')
         artist = track.get('user', {}).get('username', '')
+        artwork_url = track.get('artwork_url')
         track_authorization = track.get('track_authorization')
 
         # Check if the track is already completed
@@ -295,6 +277,7 @@ def process_tracks(track_id=None):
                 album=album_title,
                 track_auth=track_authorization,
                 artist=artist,
+                artwork_url=artwork_url,
                 stream_url=stream_url,
                 status="in_progress",
                 stage="stream_url_retrieved"
@@ -326,6 +309,16 @@ def process_tracks(track_id=None):
 
             download_mp3_files(m3u_file_path, track_folder, track_id)  # Download MP3s 
             
+            insert_or_update_track_info(
+                user_id, client_id, track_id,
+                m3u_url=m3u_url,
+                album=album_title,
+                artist=artist,
+                stream_url=stream_url,
+                status="in_progress",
+                stage="merge_mp3_parts"
+            )
+
             # Merge audio parts (optional, if needed) -- needs fixing
             merge_audio_parts(track_id, track_folder, artist, title, user_id)
 
@@ -341,4 +334,49 @@ def delete_all_tracks():
     conn.commit()  
     print(f"deleted all tracks")
 
+# process_tracks()
+def get_tracks_from_db():
+    """Retrieve relevant track details from the database."""
+    # Connect to the SQLite database (adjust path if necessary)
+    conn = sqlite3.connect('soundcloud.sqlite')
+    cursor = conn.cursor()
+
+    query = """
+    SELECT title, artist, status, stage, artwork_url
+    FROM likes;
+    """
+    cursor.execute(query)
+    tracks = cursor.fetchall()
+
+    # Close the database connection
+    conn.close()
+
+    # Return the tracks
+    return tracks
+
 process_tracks()
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/get_tracks', methods=['GET'])
+def get_tracks():
+    tracks = get_tracks_from_db()
+    # Convert the tracks into a list of dictionaries
+    track_list = []
+    for track in tracks:
+        track_list.append({
+            "title": track[0],
+            "artist": track[1],
+            "status": track[2],
+            "stage": track[3],
+            "artwork_url": track[4]
+        })
+    
+    return jsonify(track_list)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+

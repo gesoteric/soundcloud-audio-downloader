@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liked Tracks</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <style>
+        /* Basic Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body and general styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            color: #333;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            grid-template-rows: 60px 1fr; /* Fixed header at top, rest of the page content below */
+        }
+
+        /* Fixed Navigation bar */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #222;
+            padding: 10px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        nav h1 {
+            color: #fff;
+            font-size: 24px;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 20px;
+        }
+
+        nav ul li {
+            color: #fff;
+            cursor: pointer;
+        }
+
+        nav ul li:hover {
+            text-decoration: underline;
+        }
+
+        /* Main container with three columns */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 60% 1fr; /* 60% width for the middle column */
+            grid-gap: 20px;
+            width: 100%;
+            padding-top: 80px; /* To account for the fixed navigation */
+            height: 100vh;
+        }
+
+        /* Main section */
+        main {
+            text-align: center;
+            width: 100%;
+        }
+
+        h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        button {
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #E64A19;
+        }
+
+        /* Table styling */
+        #tracks-table {
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        .action-buttons button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .action-buttons button:hover {
+            background-color: #45a049;
+        }
+
+        /* Image styling */
+        img {
+            max-width: 50px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fixed Navigation Bar -->
+    <nav>
+        <h1>My Music</h1>
+        <ul>
+            <li>Likes</li>
+            <li>Playlists</li>
+        </ul>
+    </nav>
+
+    <!-- Main content container -->
+    <div class="container">
+        <!-- Left Spacer Column (empty) -->
+        <div></div>
+
+        <!-- Center Column (Main Content) -->
+        <div>
+            <!-- Main content -->
+            <main>
+                <h2>Liked Tracks</h2>
+                
+                <!-- Button to Load New Tracks -->
+                <button onclick="loadTracks()">Load New Tracks</button>
+
+                <!-- Table for displaying tracks -->
+                <table id="tracks-table" class="display">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>Status</th>
+                            <th>Stage</th>
+                            <th>Artwork</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tracks-table-body">
+                        <!-- Dynamic track rows will be inserted here -->
+                    </tbody>
+                </table>
+            </main>
+        </div>
+
+        <!-- Right Spacer Column (empty) -->
+        <div></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script>
+        // Automatically load tracks when the page loads
+        window.onload = loadTracks;
+
+        // Initialize DataTable after tracks are loaded
+        function initializeDataTable() {
+            $('#tracks-table').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true,
+                info: true,
+                responsive: true
+            });
+        }
+
+        // Function to load tracks
+        function loadTracks() {
+            fetch('/get_tracks')
+                .then(response => response.json())
+                .then(tracks => {
+                    const tableBody = document.getElementById('tracks-table-body');
+                    tableBody.innerHTML = '';  // Clear any existing rows
+
+                    tracks.forEach(track => {
+                        const row = document.createElement('tr');
+                        
+                        // Create cells for each track property
+                        const titleCell = document.createElement('td');
+                        titleCell.textContent = track.title;
+                        row.appendChild(titleCell);
+                        
+                        const artistCell = document.createElement('td');
+                        artistCell.textContent = track.artist;
+                        row.appendChild(artistCell);
+                        
+                        const statusCell = document.createElement('td');
+                        statusCell.textContent = track.status;
+                        row.appendChild(statusCell);
+                        
+                        const stageCell = document.createElement('td');
+                        stageCell.textContent = track.stage;
+                        row.appendChild(stageCell);
+                        
+                        const artworkCell = document.createElement('td');
+                        const artworkImg = document.createElement('img');
+                        artworkImg.src = track.artwork_url;
+                        artworkImg.alt = "Artwork";
+                        artworkCell.appendChild(artworkImg);
+                        row.appendChild(artworkCell);
+                        
+                        const actionsCell = document.createElement('td');
+                        actionsCell.classList.add('action-buttons');
+                        actionsCell.innerHTML = `
+                            <button onclick="downloadTrack()">Download</button>
+                            <button onclick="retryTrack()">Retry</button>
+                        `;
+                        row.appendChild(actionsCell);
+
+                        tableBody.appendChild(row);
+                    });
+
+                    // Initialize or re-initialize DataTable after updating the table
+                    initializeDataTable();
+                })
+                .catch(error => console.error('Error loading tracks:', error));
+        }
+
+        // Action functions
+        function downloadTrack() {
+            alert('Download clicked');
+        }
+
+        function retryTrack() {
+            alert('Retry clicked');
+        }
+    </script>
+</body>
+</html>
