@@ -173,13 +173,22 @@ def merge_audio_parts(track_id, track_folder, artist, title, user_id):
             
             # Update the database with the file location
             update_database_with_file_location(track_id, output_filename, user_id)
+
             
             return output_filename  # Return the file location to the front-end for playback
 
         else:
             print(f"Failed to create the final output file: {output_filename}")
+            
+
     else:
         print(f"No parts found to merge for track ID: {track_id}")
+         # Mark the track as downloading MP3 parts
+        insert_or_update_track_info(
+        user_id, client_id, track_id,
+        status="error",
+        stage="merging_mp3_failed"
+        )
         return None
 
 def update_database_with_file_location(track_id, file_location, user_id):
@@ -366,17 +375,6 @@ def process_tracks(track_id=None):
         # Download MP3 parts
         download_mp3_files(m3u_file_path, track_folder, track_id)  # Download MP3s 
         
-        # Mark the track as downloading MP3 parts
-        insert_or_update_track_info(
-            user_id, client_id, track_id,
-            m3u_url=m3u_url,
-            album=album_title,
-            artist=artist,
-            stream_url=stream_url,
-            status="in_progress",
-            stage="merge_mp3_parts"
-        )
-
         # Merge audio parts (optional, if needed)
         merge_audio_parts(track_id, track_folder, artist, title, user_id)
 
@@ -432,7 +430,9 @@ def get_tracks():
             "file_location": track[5]
         })
     
-    return jsonify(track_list)
+    response = jsonify(track_list)
+    response.headers["Content-Type"] = "application/json"
+    return response
 
 @app.route('/load_liked_tracks', methods=['GET'])
 def load_liked_tracks():

@@ -1,5 +1,6 @@
 import logging
 import time
+import re
 
 def retry_with_logging(func, max_retries=3, delay=2, *args, **kwargs):
     """

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liked Tracks</title>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <link rel="stylesheet" href="/fonts/style.css">
 
     <style>
@@ -22,7 +22,7 @@
             font-family: 'Inter Medium', sans-serif;
             background-color: #f7f7f7;
             color: #333;
-            font-size: 15px;
+            font-size: 12px;
             line-height: 1.5;
             margin: 0;
             padding: 0;
@@ -123,11 +123,11 @@
         }
 
         #tracks-table td:nth-child(1) {
-            font-size: 15px;
+            font-size: 12px;
             color: #333;
             text-align: left;
         }
-        
+
         #tracks-table th {
             text-align: left;
         }
@@ -142,27 +142,48 @@
             height: 25px;
             border-radius: 5px;
         }
+
         /* Server status CSS for Track Statuses */
-.server-status {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
+        .server-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
 
-.server-status[type="completed"] {
-  background: #2ECC71; /* Green for Completed */
-}
+        .server-status[type="completed"] {
+            background: #2ECC71;
+            /* Green for Completed */
+        }
 
-.server-status[type="in_progress"] {
-  background: #F1C40F; /* Yellow for In Progress */
-}
+        .server-status[type="in_progress"] {
+            background: #F1C40F;
+            /* Yellow for In Progress */
+        }
 
-.server-status[type="failed"] {
-  background: #E74C3C; /* Red for Failed */
-}
+        .server-status[type="failed"] {
+            background: #E74C3C;
+            /* Red for Failed */
+        }
 
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+            /* Ensure it starts hidden */
+        }
+
+        #toast {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            opacity: 0.9;
+        }
     </style>
 </head>
 
@@ -197,10 +218,10 @@
                 <table id="tracks-table" class="compact row-border">
                     <thead>
                         <tr>
-                            <th>Title</th>
-                            <th>Status</th>
-                            <th>Stage</th>
-                            <th>Actions</th>
+                            <th style="width:70%;">Title</th>
+                            <th style="width:5%;">Status</th>
+                            <th style="width:10%;">Stage</th>
+                            <th style="width:5%;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="tracks-table-body"></tbody>
@@ -213,230 +234,154 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script>
+
         window.onload = () => {
-            loadTracks();          // Fetch and display tracks initially
-            startPeriodicUpdates(); // Start periodic updates
+            initializeDataTable()
         };
 
-        function initializeDataTable() {
-            $('#tracks-table').DataTable({
+
+        $(document).ready(function () {
+            const table = $('#tracks-table').DataTable({
                 paging: true,
                 searching: true,
                 ordering: true,
                 info: true,
                 responsive: true,
-                columnDefs: [{ targets: 3, orderable: false }]
-            });
-        }
-
-     function loadTracks() {
-    fetch('/get_tracks')
-        .then(response => response.json())
-        .then(tracks => {
-            const tableBody = document.getElementById('tracks-table-body');
-            tableBody.innerHTML = ''; // Clear existing rows
-
-            tracks.forEach(track => {
-                const row = document.createElement('tr');
-
-                const titleArtistCell = document.createElement('td');
-                titleArtistCell.style.display = "flex";
-                titleArtistCell.style.alignItems = "center";
-                titleArtistCell.style.gap = "10px";
-
-                const artworkImg = document.createElement('img');
-                artworkImg.src = track.artwork_url;
-                artworkImg.alt = "Artwork";
-
-                const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
-                titleArtistCell.appendChild(artworkImg);
-                titleArtistCell.appendChild(textContent);
-
-                row.appendChild(titleArtistCell);
-
-                // Create a status cell with an indicator
-                const statusCell = document.createElement('td');
-                const statusIndicator = document.createElement('span');
-                statusIndicator.classList.add('server-status');
-
-                // Add class based on track status
-                if (track.status === "completed") {
-                    statusIndicator.setAttribute('type', 'completed');
-                } else if (track.status === "in_progress") {
-                    statusIndicator.setAttribute('type', 'in_progress');
-                } else if (track.status === "failed") {
-                    statusIndicator.setAttribute('type', 'failed');
-                }
-                statusCell.appendChild(statusIndicator);
-                row.appendChild(statusCell);
-
-                const stageCell = document.createElement('td');
-                stageCell.textContent = track.stage;
-                row.appendChild(stageCell);
-
-                const actionsCell = document.createElement('td');
-                actionsCell.classList.add('action-buttons');
-
-                if (track.status === 'completed') {
-                    // Play button for completed tracks
-                    actionsCell.innerHTML = ` 
-                        <button onclick="playTrack('${track.file_location}')">Play</button>
-                        <button onclick="retryTrack()">Retry</button>
-                    `;
-                } else {
-                    // Retry button for non-completed tracks
-                    actionsCell.innerHTML = ` 
-                        <button onclick="retryTrack()">Retry</button>
-                    `;
-                }
-
-                row.appendChild(actionsCell);
-                tableBody.appendChild(row);
+                pageLength: 10,
+                columnDefs: [{ targets: 3, orderable: false }],
+                ajax: {
+                    url: '/get_tracks',
+                    type: 'GET',
+                    dataSrc: '',
+                    error: function (xhr, error, thrown) {
+                        console.error('Error fetching data:', xhr.responseText);
+                    }
+                },
+                columns: [
+                    {
+                        data: null,
+                        render: function (data, type, row) {
+                            return `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <img src="${row.artwork_url}" alt="Artwork" style="max-width: 25px; height: 25px; border-radius: 5px;">
+                                ${row.artist} - ${row.title}
+                            </div>
+                        `;
+                        }
+                    },
+                    {
+                        data: 'status',
+                        render: function (data) {
+                            const statusColors = {
+                                completed: '#2ECC71', // Green
+                                in_progress: '#F1C40F', // Yellow
+                                error: '#E74C3C' // Red
+                            };
+                            return `
+                            <span class="server-status" style="background: ${statusColors[data] || '#CCC'}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+                        `;
+                        }
+                    },
+                    { data: 'stage' },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function (data, type, row) {
+                            // Actions for "completed" status
+                            if (row.status === 'completed') {
+                                return `
+                                <span style="cursor: pointer;" title="Play" onclick="playTrack('${row.file_location}')">
+                                    🎵 <!-- Play Icon -->
+                                </span>
+                            `;
+                            }
+                            // Actions for "error" status
+                            else if (row.status === 'error') {
+                                return `
+                                <span style="cursor: pointer;" title="Retry" onclick="retryTrack('${row.file_location}')">
+                                    🔄 <!-- Retry/Replay Icon -->
+                                </span>
+                            `;
+                            }
+                            // No actions for other statuses
+                            return '';
+                        }
+                    }
+                ]
             });
 
-            // Destroy the existing DataTable and reinitialize it
-            if ($.fn.dataTable.isDataTable('#tracks-table')) {
-                $('#tracks-table').DataTable().clear().destroy();
-            }
-
-            // Reinitialize DataTable after updating rows
-            initializeDataTable();
+            setInterval(() => {
+                table.ajax.reload(null, false); // Reload data without resetting pagination
+            }, 5000);
         });
-}
-        function downloadTrack() {
-            alert('Download clicked');
+
+        function playTrack(fileLocation) {
+            const mp3PlayerContainer = document.getElementById('mp3-player-container');
+            const mp3PlayerSource = document.getElementById('mp3-player-source');
+            const mp3Player = document.getElementById('mp3-player');
+
+            if (mp3PlayerContainer && mp3PlayerSource && mp3Player) {
+                mp3PlayerContainer.style.display = 'block';
+                mp3PlayerSource.src = fileLocation;
+                mp3Player.load();
+                mp3Player.play();
+            } else {
+                console.error('MP3 Player elements are missing!');
+            }
         }
 
-        function retryTrack() {
-            alert('Retry clicked');
+        function retryTrack(fileLocation) {
+            alert(`Retrying track: ${fileLocation}`);
+            // Add retry logic here
         }
-
         function loadTrackLikes() {
             fetch('/load_liked_tracks', { method: 'GET' })
                 .then(response => {
                     if (response.ok) {
-                        alert('Background processing started!');
+                        showToast('Track processing triggered successfully!', 'success');
                     } else {
-                        alert('Failed to start processing.');
+                        response.json().then(data => {
+                            showToast(data.error || 'An error occurred while triggering track processing.', 'error');
+                        });
                     }
                 })
-                .catch(error => console.error('Error triggering load_liked_tracks:', error));
+                .catch(err => {
+                    showToast('Failed to send request. Please try again.', 'error');
+                    console.error('Error:', err);
+                });
         }
 
-        function startPeriodicUpdates() {
-            setInterval(() => {
-                fetch('/get_tracks')
-                    .then(response => response.json())
-                    .then(tracks => {
-                        updateDataTable(tracks); // Update table with new data
-                    })
-                    .catch(error => console.error('Error updating tracks:', error));
-            }, 5000); // Update every 5 seconds
+        function showToast(message, type) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.getElementById('toast');
+
+            // Set the message and style based on type
+            toast.textContent = message;
+            if (type === 'success') {
+                toast.style.backgroundColor = '#2ECC71'; // Green
+            } else if (type === 'error') {
+                toast.style.backgroundColor = '#E74C3C'; // Red
+            } else {
+                toast.style.backgroundColor = '#333'; // Default dark color
+            }
+
+            // Show the toast
+            toastContainer.style.display = 'block';
+
+            // Automatically hide the toast after 3 seconds
+            setTimeout(() => {
+                toastContainer.style.display = 'none';
+            }, 3000);
         }
-
-        function updateDataTable(tracks) {
-    const tableBody = document.getElementById('tracks-table-body');
-    tableBody.innerHTML = ''; // Clear existing rows
-
-    tracks.forEach(track => {
-        const row = document.createElement('tr');
-
-        const titleArtistCell = document.createElement('td');
-        titleArtistCell.style.display = "flex";
-        titleArtistCell.style.alignItems = "center";
-        titleArtistCell.style.gap = "10px";
-
-        const artworkImg = document.createElement('img');
-        artworkImg.src = track.artwork_url;
-        artworkImg.alt = "Artwork";
-
-        const textContent = document.createTextNode(`${track.artist} - ${track.title}`);
-        titleArtistCell.appendChild(artworkImg);
-        titleArtistCell.appendChild(textContent);
-
-        row.appendChild(titleArtistCell);
-
-        // Create a status cell with an indicator
-        const statusCell = document.createElement('td');
-        const statusIndicator = document.createElement('span');
-        statusIndicator.classList.add('server-status');
-
-        // Add class based on track status
-        if (track.status === "completed") {
-            statusIndicator.setAttribute('type', 'completed');
-        } else if (track.status === "in_progress") {
-            statusIndicator.setAttribute('type', 'in_progress');
-        } else if (track.status === "failed") {
-            statusIndicator.setAttribute('type', 'failed');
-        }
-        statusCell.appendChild(statusIndicator);
-        row.appendChild(statusCell);
-
-        const stageCell = document.createElement('td');
-        stageCell.textContent = track.stage;
-        row.appendChild(stageCell);
-
-        const actionsCell = document.createElement('td');
-        actionsCell.classList.add('action-buttons');
-        
-        // Add Play button for completed tracks
-        if (track.status === 'completed') {
-            actionsCell.innerHTML = `
-                <button onclick="playTrack('${track.file_location}')">Play</button>
-                <button onclick="retryTrack()">Retry</button>
-            `;
-        } else {
-            // Retry button for non-completed tracks
-            actionsCell.innerHTML = `
-                <button onclick="retryTrack()">Retry</button>
-            `;
-        }
-        row.appendChild(actionsCell);
-
-        tableBody.appendChild(row);
-    });
-}
-function playTrack(fileLocation) {
-    // Ensure the MP3 player container is displayed
-    const mp3PlayerContainer = document.getElementById('mp3-player-container');
-    if (mp3PlayerContainer) {
-        mp3PlayerContainer.style.display = 'block';  // Show the player
-    } else {
-        console.error('MP3 player container not found!');
-        return;
-    }
-
-    // Construct the full URL to the track by appending it to the server path
-    const fullFilePath = `${fileLocation}`;
-
-    // Get the MP3 player source element
-    const mp3PlayerSource = document.getElementById('mp3-player-source');
-    if (mp3PlayerSource) {
-        // Set the MP3 source URL
-        mp3PlayerSource.src = fullFilePath;
-    } else {
-        console.error('MP3 player source element not found!');
-        return;
-    }
-
-    // Get the MP3 player element
-    const mp3Player = document.getElementById('mp3-player');
-    if (mp3Player) {
-        // Reload the source and play the track
-        mp3Player.load();  // Reload the player
-        mp3Player.play();  // Start playing the track
-    } else {
-        console.error('MP3 player element not found!');
-    }
-}
-
-
-
-function retryTrack() {
-    alert('Retry clicked');
-}
     </script>
 
+
 </body>
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000; display: none;">
+    <div id="toast"
+        style="background-color: #333; color: white; padding: 10px 20px; border-radius: 5px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); opacity: 0.9;">
+        Background process to retrieve tracks has started..
+    </div>
+</div>
 
 </html>
