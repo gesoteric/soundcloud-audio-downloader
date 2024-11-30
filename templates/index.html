@@ -7,204 +7,27 @@
     <title>Liked Tracks</title>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <link rel="stylesheet" href="/fonts/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-    <style>
-        /* Basic Reset */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
 
-        /* Body and general styles */
-        body {
-            font-family: 'Inter Medium', sans-serif;
-            background-color: #f7f7f7;
-            color: #333;
-            font-size: 12px;
-            line-height: 1.5;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            grid-template-rows: 60px 1fr;
-        }
-
-        /* Fixed Navigation bar */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: #222;
-            padding: 10px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        nav h1 {
-            color: #fff;
-            font-size: 24px;
-        }
-
-        nav ul {
-            list-style: none;
-            display: flex;
-            gap: 20px;
-        }
-
-        nav ul li {
-            color: #fff;
-            cursor: pointer;
-        }
-
-        nav ul li:hover {
-            text-decoration: underline;
-        }
-
-        /* Main container with three columns */
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 60% 1fr;
-            grid-gap: 20px;
-            width: 100%;
-            padding-top: 55px;
-            height: 100vh;
-            overflow: auto;
-        }
-
-        /* Main section */
-        main {
-            text-align: center;
-            width: 100%;
-        }
-
-        h2 {
-            font-size: 28px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        button {
-            background-color: #FF5722;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            border-radius: 5px;
-            font-size: 16px;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background-color: #E64A19;
-        }
-
-        /* Table styling */
-        #tracks-table {
-            width: 100%;
-            table-layout: auto;
-        }
-
-        .action-buttons button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 5px 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-
-        #tracks-table td {
-            height: 40px;
-        }
-
-        #tracks-table td:nth-child(1) {
-            font-size: 12px;
-            color: #333;
-            text-align: left;
-        }
-
-        #tracks-table th {
-            text-align: left;
-        }
-
-        .action-buttons button:hover {
-            background-color: #45a049;
-        }
-
-        /* Image styling */
-        img {
-            max-width: 25px;
-            height: 25px;
-            border-radius: 5px;
-        }
-
-        /* Server status CSS for Track Statuses */
-        .server-status {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-
-        .server-status[type="completed"] {
-            background: #2ECC71;
-            /* Green for Completed */
-        }
-
-        .server-status[type="in_progress"] {
-            background: #F1C40F;
-            /* Yellow for In Progress */
-        }
-
-        .server-status[type="failed"] {
-            background: #E74C3C;
-            /* Red for Failed */
-        }
-
-        #toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            display: none;
-            /* Ensure it starts hidden */
-        }
-
-        #toast {
-            background-color: #333;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            opacity: 0.9;
-        }
-    </style>
 </head>
-
-<body>
 
     <!-- Fixed Navigation Bar -->
     <nav>
-        <h1>My Music</h1>
-        <ul>
-            <li>Likes</li>
-            <li>Playlists</li>
-        </ul>
+        <div class="menu-container">
+            <h1 style="color: white;">Liked Tracks</h1>
+            <ul>
+                <li class="active">Likes</li>
+                <li>Playlists</li>
+            </ul>
+        </div>
     </nav>
-
+    <body>
     <!-- Main content container -->
     <div class="container">
         <div></div>
         <div style="border-left: 1.5px solid lightgrey; border-right: 1.5px solid lightgrey;">
             <main style="padding: 20px;">
-                <h2>Liked Tracks</h2>
-
                 <div id="mp3-player-container" style="display: none; margin-bottom: 20px;">
                     <audio id="mp3-player" controls>
                         <source id="mp3-player-source" src="" type="audio/mp3">
@@ -247,7 +70,7 @@
                 ordering: true,
                 info: true,
                 responsive: true,
-                pageLength: 10,
+                pageLength: 25,
                 columnDefs: [{ targets: 3, orderable: false }],
                 ajax: {
                     url: '/get_tracks',

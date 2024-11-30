@@ -2,6 +2,8 @@
 
 I live in Australia, where mobile internet is garbage. Going for night drives in remote areas can often result in internet data being unavailable, resulting in my soundcloud playlist being inaccessible. I have set out to remedy this problem as part of this little project.
 
+Disclaimer: Soundcloud will not process my official API app request to do things "right". "Due to the high amount of requests recently received, we will no longer be processing API application requests at this time. We are working to re-evaluate our process to make it more efficient."
+
 # SoundCloud Bulk Track Processor
 
 This script retrieves liked tracks from SoundCloud in bulk, handles retries for fetching track data, downloads MP3 parts, and merges them into a single file. It aims to address the lack of tooling for fetching multiple tracks at once by automating the download process.
@@ -49,7 +51,16 @@ This script retrieves liked tracks from SoundCloud in bulk, handles retries for 
     pip install requests pydub
     ```
 
-2. Create a `config.py` file with the following variables:
+2. Retrieve your client_Id and user_id from soundcloud.com
+
+- Visit soundcloud.com
+- Hit F12 on your keyboard
+- Click the *Network* tab
+- Filter for /users
+- Look for responses which contain "/users/{user_id}" and client_id={client_id}
+- Add both these values to your config.py file
+
+3. Create a `config.py` file with the following variables:
 
     ```python
     user_id = 'YOUR_USER_ID'
@@ -58,7 +69,7 @@ This script retrieves liked tracks from SoundCloud in bulk, handles retries for 
     offset = 0  # Starting point for fetching tracks
     ```
 
-3. Run the script:
+4. Run the script:
 
     ```bash
     python app.py
