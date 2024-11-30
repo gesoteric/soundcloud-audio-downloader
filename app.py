@@ -9,7 +9,14 @@ from config import user_id, client_id, limit, offset
 from flask import Flask, render_template, request, jsonify, send_from_directory, app
 from retry import retry_with_logging
 
-app = Flask(__name__)
+# Get the absolute path to the app's root directory
+app_root = os.path.dirname(os.path.abspath(__file__))
+
+# Define the path for your SQLite database relative to the app root
+db_path = os.path.join(app_root, 'soundcloud.sqlite')
+
+# Loading of static files (CSS/JS etc.)
+app = Flask(__name__, static_folder='templates/static')
 
 # Create tmp directory if it doesn't exist
 os.makedirs('tmp', exist_ok=True)
@@ -129,21 +136,33 @@ def get_track_by_id(track_id):
     """
     get_stream_url(track_id)
 
-# Function to merge audio parts and store the file location in the database
+from pydub.exceptions import CouldntDecodeError
+
 def merge_audio_parts(track_id, track_folder, artist, title, user_id):
-    """Merges MP3 parts into a single audio file and updates the database with the file location."""
+    """Merges audio parts into a single file (MP3 or AAC) and updates the database with the file location."""
     parts = []
     part_number = 1
 
+    # Try MP3 format first
     while True:
-        filename = os.path.join(track_folder, f"{track_id}-part{part_number}.mp3")
-        if os.path.exists(filename):
+        mp3_filename = os.path.join(track_folder, f"{track_id}-part{part_number}.mp3")
+        aac_filename = os.path.join(track_folder, f"{track_id}-part{part_number}.aac")  # Checking for AAC format
+
+        if os.path.exists(mp3_filename):
             try:
-                audio_segment = AudioSegment.from_mp3(filename)
+                audio_segment = AudioSegment.from_mp3(mp3_filename)
                 audio_segment = audio_segment.set_frame_rate(44100).set_channels(2)  # Ensure consistent properties
                 parts.append(audio_segment)
             except CouldntDecodeError as e:
-                print(f"Error decoding {filename}: {e}")
+                print(f"Error decoding {mp3_filename}: {e}")
+                break  # Exit if MP3 format fails, proceed to AAC check
+        elif os.path.exists(aac_filename):  # If MP3 fails, try AAC
+            try:
+                audio_segment = AudioSegment.from_file(aac_filename, format="aac")
+                audio_segment = audio_segment.set_frame_rate(44100).set_channels(2)  # Ensure consistent properties
+                parts.append(audio_segment)
+            except CouldntDecodeError as e:
+                print(f"Error decoding {aac_filename}: {e}")
             part_number += 1
         else:
             break
@@ -164,8 +183,16 @@ def merge_audio_parts(track_id, track_folder, artist, title, user_id):
         os.makedirs(tracks_dir, exist_ok=True)
         output_filename = os.path.join(tracks_dir, sanitized_title)
 
-        # Export the combined file as MP3
-        combined.export(output_filename, format='mp3', bitrate="192k")
+        # Export the combined file as MP3 first (default), fallback to AAC if needed
+        try:
+            combined.export(output_filename, format='mp3', bitrate="192k")
+        except Exception as e:
+            # Mark the track as merging failed in the database
+            insert_or_update_track_info(user_id, track_id, status="error", stage="merging_mp3_failed")
+            print(f"Failed to export MP3. Trying AAC format... {e}")
+            insert_or_update_track_info(user_id, track_id, status="in_progress", stage="merging_aac_files")
+            output_filename = os.path.splitext(output_filename)[0] + ".aac"  # Change extension to .aac
+            combined.export(output_filename, format="aac", bitrate="192k")
 
         # Check if the output file was created successfully
         if os.path.exists(output_filename):
@@ -174,22 +201,19 @@ def merge_audio_parts(track_id, track_folder, artist, title, user_id):
             # Update the database with the file location
             update_database_with_file_location(track_id, output_filename, user_id)
 
-            
             return output_filename  # Return the file location to the front-end for playback
-
         else:
             print(f"Failed to create the final output file: {output_filename}")
             
-
+            # Mark the track as merging failed in the database
+            insert_or_update_track_info(user_id, track_id, status="error", stage="merging_failed")
+            
     else:
         print(f"No parts found to merge for track ID: {track_id}")
          # Mark the track as downloading MP3 parts
-        insert_or_update_track_info(
-        user_id, client_id, track_id,
-        status="error",
-        stage="merging_mp3_failed"
-        )
+        insert_or_update_track_info(user_id, track_id, status="error", stage="merging_mp3_failed")
         return None
+
 
 def update_database_with_file_location(track_id, file_location, user_id):
     """Updates the track's record in the database with the file location."""
