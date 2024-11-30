@@ -29,9 +29,9 @@ This script retrieves liked tracks from SoundCloud in bulk, handles retries for 
 ## To-Do List
 
 - [ ] **Retry fetching likes**: Implement retry logic for fetching tracks if the initial request fails.
-- [/] **UI**: Build a user interface to display the status of the processing tracks.
+- [x] **UI**: Build a user interface to display the status of the processing tracks.
 - [ ] **Fetch specific track**: Add functionality to fetch and process a specific track by its ID.
-- [ ] **Error Handling**: Improve error handling for network and file I/O issues.
+- [x] **Error Handling**: Improve error handling for network and file I/O issues.
 - [ ] **File Cleanup**: Implement cleanup of temporary files after processing.
 - [ ] **Track Download Progress**: Add progress logging for the track download process.
 
